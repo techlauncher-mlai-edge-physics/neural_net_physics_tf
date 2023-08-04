@@ -8,8 +8,15 @@ authors = [
 dependencies = [
     "phiflow>=2.4.0",
     "tensorflow>=2.13.0",
-    "tensorflowjs>=4.10.0",
+    "tensorflowjs",
     "onnx>=1.14.0",
+    "dill",
+    "numpy<1.24",
+    "tqdm",
+    "matplotlib",
+    "ipykernel",
+    "jupyter",
+    "jupyterlab"
 ]
 requires-python = ">=3.9,<3.11"
 readme = "README.md"
