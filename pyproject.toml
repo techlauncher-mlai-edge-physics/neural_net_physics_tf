@@ -1,0 +1,16 @@
+[project]
+name = "neural_net_physics_tf"
+version = "0.0.1"
+description = "backend model training code for CFlowSim project, TensorFlow version"
+authors = [
+    {name = "techlancher-mlai-edge-physics", email = "example@example.com"},
+]
+dependencies = [
+    "phiflow>=2.4.0",
+    "tensorflow>=2.13.0",
+    "tensorflowjs>=4.10.0",
+    "onnx>=1.14.0",
+]
+requires-python = ">=3.9,<3.11"
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
