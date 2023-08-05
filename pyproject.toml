@@ -9,14 +9,16 @@ dependencies = [
     "phiflow>=2.4.0",
     "tensorflow>=2.13.0",
     "tensorflowjs",
-    "onnx>=1.14.0",
-    "dill",
-    "numpy<1.24",
-    "tqdm",
-    "matplotlib",
-    "ipykernel",
-    "jupyter",
-    "jupyterlab"
+    "tqdm>=4.65.0",
+    "matplotlib>=3.7.2",
+    "ipykernel>=6.25.0",
+    "jupyter>=1.0.0",
+    "jupyterlab>=4.0.4",
+    "dill>=0.3.7",
+    "tensorflow-io-gcs-filesystem==0.31.0",
+    "tf2onnx>=1.8.4",
+    "onnxruntime>=1.15.1",
+    "numpy>=1.24.3",
 ]
 requires-python = ">=3.9,<3.11"
 readme = "README.md"
