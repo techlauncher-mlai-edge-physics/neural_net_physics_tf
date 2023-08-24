@@ -56,6 +56,7 @@ class FourierLayer2d(tf.keras.layers.Layer):
     @staticmethod
     def complex_matmul_2d(a, b):
         # (batch, in_channel, x, y), (in_channel, out_channel, x, y) -> (batch, out_channel, x, y)
+        # assert they have the dimension
         op = partial(tf.einsum, "bixy,ioxy->boxy")
         return tf.stack(
             [
@@ -70,6 +71,7 @@ class FourierLayer2d(tf.keras.layers.Layer):
         B, M, N, I = x.shape
 
         x = tf.transpose(x, perm=[0, 3, 1, 2])
+        assert x.dtype == tf.float32
         # x.shape == [batch_size, in_dim, grid_size, grid_size]
 
         # x_ft_real = tf.signal.rfft(x, fft_length=M, name="rfft_real")
@@ -78,16 +80,31 @@ class FourierLayer2d(tf.keras.layers.Layer):
 
         x_ft = tf.signal.rfft2d(x, fft_length=[M, N])
 
+        x_ft = tf.stack([tf.math.real(x_ft), tf.math.imag(x_ft)], axis=-1)
+
+        # downcast to float32, see https://www.tensorflow.org/api_docs/python/tf/signal/rfft2d, since tf.signal.rfft2d returns complex64 and input is float32
+        x_ft = tf.cast(x_ft, tf.float32)
+
+        # x_ft.shape == [batch_size, in_dim, grid_size, grid_size // 2 + 1, 2]
+
         # x_ft_stacked = tf.stack([x_ft_real, x_ft_imag], axis=-1)
         # x_ft_stacked.shape == [batch_size, in_dim, grid_size, grid_size // 2 + 1, 2]
-
-        out_ft = tf.zeros((B, I, N, M // 2 + 1, 2), dtype=tf.float32)
-        out_ft = out_ft + self.complex_matmul_2d(
+        out_ft = self.complex_matmul_2d(
             x_ft[:, :, : self.n_modes, : self.n_modes], self.fourier_weight[0]
         )
-        out_ft = out_ft + self.complex_matmul_2d(
-            x_ft[:, :, -self.n_modes :, : self.n_modes], self.fourier_weight[1]
+        out_ft_zero = tf.zeros([B, I, N - self.n_modes * 2, self.n_modes, 2], dtype=tf.float32)
+        out_ft = tf.concat([out_ft, out_ft_zero], axis=-3)
+        out_ft = tf.concat(
+            [
+                out_ft,
+                self.complex_matmul_2d(
+                    x_ft[:, :, :self.n_modes, :self.n_modes], self.fourier_weight[1]
+                ),
+            ],
+            axis=-3,
         )
+        out_ft = tf.concat([out_ft, tf.zeros([B, I, N, M-self.n_modes, 2])], axis=-2)
+
         out_ft = tf.complex(out_ft[..., 0], out_ft[..., 1])
 
         x = tf.signal.irfft2d(out_ft, fft_length=[N, M])
@@ -157,7 +174,6 @@ class FNO2d(tf.keras.layers.Layer):
             w = next_w
         if nearly_last_width > 0:
             self.out_1 = tf.keras.layers.Dense(nearly_last_width, use_bias=bias_1)
-            w = nearly_last_width
             self.out_act = tf.keras.layers.ReLU()
         else:
             self.out_1 = tf.keras.layers.Identity()
@@ -184,11 +200,7 @@ class FNO2d(tf.keras.layers.Layer):
         return self.out_act(x)
 
     def _encode_positions(self, dim_sizes):
-        return phase(
-            dim_sizes=dim_sizes,
-            pos_low=self.pos_low,
-            pos_high=self.pos_high
-        )
+        return phase(dim_sizes=dim_sizes, pos_low=self.pos_low, pos_high=self.pos_high)
 
     def _build_features(self, *predictors):
         # check what the predictors' type is
@@ -197,6 +209,7 @@ class FNO2d(tf.keras.layers.Layer):
         pos_feats = tf.repeat(pos_feats[tf.newaxis, ...], B, axis=0)
         predictor_arr = tf.concat(predictors + (pos_feats,), axis=-1)
         return predictor_arr
+
 
 # %%
 def fno_2d(*args, **kwargs):
@@ -215,9 +228,7 @@ model_fno2 = fno_2d(
 )
 
 
-@tf.function(
-    input_signature=[tf.TensorSpec(shape=(1, 64, 64, 5), dtype=tf.float32)]
-)
+@tf.function(input_signature=[tf.TensorSpec(shape=(1, 64, 64, 5), dtype=tf.float32)])
 def fno2_predict(x):
     return {"outputs": model_fno2(x)}
 
