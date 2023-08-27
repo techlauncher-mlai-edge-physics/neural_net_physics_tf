@@ -1,49 +1,58 @@
 # %%
 from src import fourier_basis
-from src import plots, physical_models, iterators, formatting  # , meth
+from src import plots
 from src import physical_models
-from src.formatting import pvf_p_stacker
+from src import iterators
+from src import formatting
 from src.layers import fno_2d
-from src.iterators import multi_sim_context_generator
-from src.formatting import pvf_p_stacker, pvf_pv_stacker
-from src.iterators import multi_sim_context_generator, sim_generator, last_n
-from src.sim_iterator import tf_data_generator, simple_sim_gen
+from src.formatting import pvf_pv_stacker
+from src.sim_iterator import simple_sim_gen
 import os
 
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.optimizers.schedules import ExponentialDecay
 from tensorflow.keras.losses import MeanSquaredError
-
-import numpy as np
-from math import sqrt, ceil, floor
+import dill
 import bz2
 
 import matplotlib.pyplot as plt
 
-from einops import asnumpy, rearrange, repeat
-# from src import plots
+from einops import rearrange
+
 from phi.tf.flow import *
 from phi import math
 from phi.tf import TENSORFLOW
 
-import dill
-
-from tqdm.autonotebook import tqdm
+from tqdm import tqdm
 import datetime
 import gc  # garbage collector for training with constrained
 
 from phi import math, vis
 
 from matplotlib_inline.backend_inline import set_matplotlib_formats
-set_matplotlib_formats('jpeg',)  # <- reduce ipynb size
-PHI_DEVICE = 'CPU'
+
+set_matplotlib_formats(
+    "jpeg",
+)
+PHI_DEVICE = "CPU"
+
+set_matplotlib_formats(
+    "jpeg",
+)  # <- reduce ipynb size
+PHI_DEVICE = "CPU"
 # %%
 grid_size = (64, 64)
 grid_size_x, grid_size_y = grid_size
 
 init_rand, sim_step = physical_models.ns_sim(
-    phi_device=PHI_DEVICE, grid_size=grid_size, jit=False, incomp=False, v_noise_power=1e6, backend="tensorflow")
+    phi_device=PHI_DEVICE,
+    grid_size=grid_size,
+    jit=False,
+    incomp=False,
+    v_noise_power=1e6,
+    backend="tensorflow"
+)
 
 # %%
 
@@ -69,8 +78,10 @@ max_steps = 1000
 
 
 dl = simple_sim_gen(
-    init_rand, sim_step,
-    n_steps=5, n_context=2,
+    init_rand,
+    sim_step,
+    n_steps=5,
+    n_context=2,
     max_steps=max_steps,
     n_batch=200,
     in_p_var=0.01,
@@ -82,15 +93,14 @@ dl = simple_sim_gen(
 )
 
 # %%
-
 X, y = next(iter(dl))
 
 X_particle = X[:, :, :, 0]
-X_particle = rearrange(X_particle, 'b x y -> (b x y)')
+X_particle = rearrange(X_particle, "b x y -> (b x y)")
 X_velocity = X[:, :, :, 1:3]
-X_velocity = rearrange(X_velocity, 'b x y c -> (b x y c)')
+X_velocity = rearrange(X_velocity, "b x y c -> (b x y c)")
 X_force = X[:, :, :, 3:]
-X_force = rearrange(X_force, 'b x y c -> (b x y c)')
+X_force = rearrange(X_force, "b x y c -> (b x y c)")
 
 # %%
 sd_particle = tf.math.reduce_std(X_particle).numpy()
@@ -113,7 +123,8 @@ model = fno_2d(
     out_channels=3,
     width=24,
     n_layers=5,
-    nearly_last_width=64)
+    nearly_last_width=64
+)
 
 # %%
 model(
@@ -128,13 +139,13 @@ max_steps = 1000
 n_batch = 32
 decay_rate = 1e-5
 initial_lr = 1e-3
-lr_schedule = ExponentialDecay(initial_lr, decay_steps=10000, decay_rate=decay_rate)
+lr_schedule = ExponentialDecay(
+    initial_lr, decay_steps=10000, decay_rate=decay_rate)
 losses = []
 LOG_PATH = "debug"
 
 SUBLOG_PATH = os.path.join(
-    LOG_PATH,
-    datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    LOG_PATH, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 # writer = SummaryWriter(log_dir=SUBLOG_PATH)
 
 
@@ -144,7 +155,8 @@ def num_params(model):
 
 #
 dl = simple_sim_gen(
-    init_rand, sim_step,
+    init_rand,
+    sim_step,
     n_steps=n_steps,
     n_context=2,
     max_steps=max_steps,
@@ -154,7 +166,7 @@ dl = simple_sim_gen(
     # out_p_var=0.01,
     # out_v_var=0.01,
     # f_var=0.01,
-    stacker=pvf_pv_stacker
+    stacker=pvf_pv_stacker,
 )
 
 optimizer = Adam(learning_rate=lr_schedule)
@@ -183,7 +195,7 @@ try:
 
         losses.append(loss.numpy())
         if step % 13 == 0:
-            print(f'iter={step}, MSE_for_this_iter={loss}')
+            print(f"iter={step}, MSE_for_this_iter={loss}")
             im = plots.pred_actual_plot(
                 pred[0, :, :, 0].numpy(),
                 y[0, :, :, 0].numpy()
@@ -193,5 +205,29 @@ try:
 
 finally:
     pass
+
+# %%
+MODEL_NAME = "fno2d_001"
+dill.dump(model, file=bz2.open(f"models/{MODEL_NAME}.pth.bz2", "wb"))
+
+
+# %%
+@tf.function(
+    input_signature=[
+        tf.TensorSpec(shape=(1, grid_size_x, grid_size_y, 5), dtype=tf.float32)
+    ]
+)
+def fno2_predict(x):
+    return {"outputs": model(x)}
+
+
+module = tf.Module()
+module.serve = fno2_predict
+module.model = model
+
+
+tf.saved_model.save(
+    module, f"models/{MODEL_NAME}", signatures={"serving_default": module.serve}
+)
 
 # %%
