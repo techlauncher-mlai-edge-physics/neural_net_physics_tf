@@ -1,8 +1,7 @@
 # %%
 import tensorflow as tf
 from functools import partial
-
-
+from einops import rearrange
 # %%
 def phase(
     dim_sizes,
@@ -174,6 +173,7 @@ class FNO2d(tf.keras.layers.Layer):
             w = next_w
         if nearly_last_width > 0:
             self.out_1 = tf.keras.layers.Dense(nearly_last_width, use_bias=bias_1)
+            w = nearly_last_width
             self.out_act = tf.keras.layers.ReLU()
         else:
             self.out_1 = tf.keras.layers.Identity()
@@ -186,9 +186,9 @@ class FNO2d(tf.keras.layers.Layer):
         x = self.last_layer(*predictors)
         x = self.out_2(x)
         if self.flat_mode == "batch":
-            x = tf.reshape(x, [-1, x.shape[-1]])
+            x = rearrange(x, 'b x y c -> (b x y) c')
         elif self.flat_mode == "vector":
-            x = tf.reshape(x, [x.shape[0], -1, x.shape[-1]])
+            x = rearrange(x, 'b x y c -> b (x y) c')
         return x
 
     def last_layer(self, *predictors):
@@ -200,11 +200,13 @@ class FNO2d(tf.keras.layers.Layer):
         return self.out_act(x)
 
     def _encode_positions(self, dim_sizes):
-        return phase(dim_sizes=dim_sizes, pos_low=self.pos_low, pos_high=self.pos_high)
+        return phase(dim_sizes=dim_sizes, 
+                     pos_low=self.pos_low, 
+                     pos_high=self.pos_high)
 
     def _build_features(self, *predictors):
         # check what the predictors' type is
-        B, *dim_sizes, T = predictors[0].get_shape().as_list()
+        B, *dim_sizes, T = predictors[0].shape
         pos_feats = self._encode_positions(dim_sizes)
         pos_feats = tf.repeat(pos_feats[tf.newaxis, ...], B, axis=0)
         predictor_arr = tf.concat(predictors + (pos_feats,), axis=-1)
@@ -216,30 +218,3 @@ def fno_2d(*args, **kwargs):
     net = FNO2d(*args, **kwargs)
     # net.build(input_shape=(None, None, None, kwargs.get('in_channels', 3)))  # Adjust input shape
     return net
-
-
-model_fno2 = fno_2d(
-    in_channels=5,
-    out_channels=3,
-    modes=25,  # was 17
-    width=40,  # was 20
-    n_layers=9,  # was 4
-    nearly_last_width=128,
-)
-
-
-@tf.function(input_signature=[tf.TensorSpec(shape=(1, 64, 64, 5), dtype=tf.float32)])
-def fno2_predict(x):
-    return {"outputs": model_fno2(x)}
-
-
-module = tf.Module()
-module.serve = fno2_predict
-module.model = model_fno2
-
-
-tf.saved_model.save(
-    module, "models/fno2_saved_model", signatures={"serving_default": module.serve}
-)
-
-# %%
