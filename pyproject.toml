@@ -15,6 +15,7 @@ dependencies = [
     "jupyterlab>=4.0.4",
     "dill>=0.3.7",
     "tensorflow-io-gcs-filesystem==0.31.0",
+    "einops",
 ]
 requires-python = ">=3.9,<3.11"
 readme = "README.md"
@@ -23,7 +24,7 @@ license = {text = "BSD-3-Clause"}
 [project.optional-dependencies]
 onnx = [
     "onnx>=1.14.0",
-    "tf2onnx>=1.14.0",
+    "tf2onnx>=1.15.0",
     "onnxruntime>=1.15.1",
 ]
 
