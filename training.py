@@ -10,9 +10,6 @@ from src.sim_iterator import simple_sim_gen
 import os
 
 import tensorflow as tf
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.optimizers.schedules import ExponentialDecay
-from tensorflow.keras.losses import MeanSquaredError
 import dill
 import bz2
 
@@ -139,7 +136,7 @@ max_steps = 1000
 n_batch = 32
 decay_rate = 1e-5
 initial_lr = 1e-3
-lr_schedule = ExponentialDecay(
+lr_schedule = tensorflow.keras.optimizers.schedules.ExponentialDecay(
     initial_lr, decay_steps=10000, decay_rate=decay_rate)
 losses = []
 LOG_PATH = "debug"
@@ -166,17 +163,17 @@ dl = simple_sim_gen(
     # out_p_var=0.01,
     # out_v_var=0.01,
     # f_var=0.01,
-    stacker=pvf_pv_stacker,
+    stacker=pvf_pv_stacker
 )
 
-optimizer = Adam(learning_rate=lr_schedule)
-loss_function = MeanSquaredError()
+optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+loss_function = tf.keras.losses.MeanSquaredError()
 
 try:
     for step, (X, y) in enumerate(tqdm(dl)):
         X_particle = X[:, :, :, :1] / sd_particle
         X_velocity = X[:, :, :, 1:3] / sd_velocity
-        X_force = X[:, :, :, 4:] / sd_force
+        X_force = X[:, :, :, 3:] / sd_force
         y_particle = y[:, :, :, :1] / sd_particle
         y_velocity = y[:, :, :, 1:3] / sd_velocity
         # X[:, :, :, 0] /= sd_particle
@@ -186,7 +183,6 @@ try:
         # y[:, :, :, 1:3] /= sd_velocity
         X = tf.concat([X_particle, X_velocity, X_force], axis=-1)
         y = tf.concat([y_particle, y_velocity], axis=-1)
-
         with tf.GradientTape() as tape:
             pred = model(X, training=True)
             loss = loss_function(y, pred)
