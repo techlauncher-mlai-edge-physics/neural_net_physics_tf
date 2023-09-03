@@ -91,6 +91,7 @@ class FourierLayer2d(tf.keras.layers.Layer):
         out_ft = self.complex_matmul_2d(
             x_ft[:, :, : self.n_modes, : self.n_modes], self.fourier_weight[0]
         )
+        # out_ft.shape=(batch_size, in_dim, n_modes, n_modes, 2)
         out_ft_zero = tf.zeros([B, I, N - self.n_modes * 2, self.n_modes, 2], dtype=tf.float32)
         out_ft = tf.concat([out_ft, out_ft_zero], axis=-3)
         out_ft = tf.concat(
@@ -102,7 +103,7 @@ class FourierLayer2d(tf.keras.layers.Layer):
             ],
             axis=-3,
         )
-        out_ft = tf.concat([out_ft, tf.zeros([B, I, N, M-self.n_modes, 2])], axis=-2)
+        out_ft = tf.concat([out_ft, tf.zeros([B, I, N, M // 2 + 1 - self.n_modes, 2])], axis=-2)
 
         out_ft = tf.complex(out_ft[..., 0], out_ft[..., 1])
 
