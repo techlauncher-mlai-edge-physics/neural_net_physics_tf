@@ -1,7 +1,9 @@
 # %%
-import tensorflow as tf
 from functools import partial
 from einops import rearrange
+import tensorflow as tf
+
+
 # %%
 def phase(
     dim_sizes,
@@ -28,6 +30,107 @@ def phase(
     grid_list = list(map(generate_grid, dim_sizes))
     grid = tf.stack(tf.meshgrid(*grid_list, indexing="ij"), axis=-1)
     return grid
+
+
+# %%
+class FourierLayer2dLite(tf.keras.layers.Layer):
+    def __init__(self, in_dim, out_dim, n_modes):
+        super(FourierLayer2d, self).__init__()
+        self.in_dim = in_dim
+        self.out_dim = out_dim
+        self.n_modes = n_modes
+        self.linear = tf.keras.layers.Dense(out_dim)
+        self.act = tf.keras.layers.ReLU()
+
+        # fourier_weight = [
+        #     tf.Variable(
+        #         tf.random.normal(
+        #             shape=(in_dim, out_dim, n_modes, n_modes, 2),
+        #             stddev=1 / (in_dim * out_dim),
+        #         )
+        #     )
+        #     for _ in range(2)
+        # ]
+        # self.fourier_weight = fourier_weight
+
+        # Create the first variable using add_weight
+        self.fourier_weight_1 = self.add_weight(
+            shape=(in_dim, out_dim, n_modes, n_modes, 2),
+            initializer="glorot_uniform",
+            trainable=True,
+            name="FourierLayer2d/fourier_weight_1",
+        )
+
+        # Create the second variable using add_weight
+        self.fourier_weight_2 = self.add_weight(
+            shape=(in_dim, out_dim, n_modes, n_modes, 2),
+            initializer="glorot_uniform",
+            trainable=True,
+            name="FourierLayer2d/fourier_weight_2",
+        )
+
+    @staticmethod
+    def complex_matmul_2d(a, b):
+        # (batch, in_channel, x, y), (in_channel, out_channel, x, y) -> (batch, out_channel, x, y)
+        # assert they have the dimension
+        op = partial(tf.einsum, "bixy,ioxy->boxy")
+        return tf.stack(
+            [
+                op(a[..., 0], b[..., 0]) - op(a[..., 1], b[..., 1]),
+                op(a[..., 1], b[..., 0]) + op(a[..., 0], b[..., 1]),
+            ],
+            axis=-1,
+        )
+
+    def call(self, inputs):
+        # x.shape == [batch_size, grid_size, grid_size, in_dim]
+        B, M, N, I = inputs.shape
+
+        inputs = tf.transpose(inputs, perm=[0, 3, 1, 2])
+        # x.shape == [batch_size, in_dim, grid_size, grid_size]
+
+        x_ft = tf.signal.rfft2d(inputs, fft_length=[M, N])
+        scale = tf.sqrt(tf.cast(tf.reduce_prod(tf.shape(inputs)[-2:]), tf.complex64))
+        x_ft /= scale
+
+        x_ft = tf.stack([tf.math.real(x_ft), tf.math.imag(x_ft)], axis=-1)
+        # x_ft.shape == [batch_size, in_dim, grid_size, grid_size // 2 + 1, 2]
+
+        out_ft = self.complex_matmul_2d(
+            x_ft[:, :, : self.n_modes, : self.n_modes], self.fourier_weight_1
+        )
+        # out_ft.shape = (batch_size, in_dim, n_modes, n_modes, 2)
+        out_ft_zero = tf.zeros(
+            [B, I, N - self.n_modes * 2, self.n_modes, 2], dtype=tf.float32
+        )
+        # out_ft_zero.shape = (batch_size, in_dim, grid_size - n_modes * 2, n_modes, 2)
+        out_ft = tf.concat([out_ft, out_ft_zero], axis=-3)
+        # out_ft.shape = (batch_size, in_dim, grid_size - n_modes, n_modes, 2)
+        out_ft = tf.concat(
+            [
+                out_ft,
+                self.complex_matmul_2d(
+                    x_ft[:, :, : self.n_modes, : self.n_modes], self.fourier_weight_2
+                ),
+            ],
+            axis=-3,
+        )
+        # out_ft.shape = (batch_size, in_dim, grid_size , n_modes, 2)
+        out_ft = tf.concat(
+            [out_ft, tf.zeros([B, I, N, M // 2 + 1 - self.n_modes, 2])], axis=-2
+        )
+        # out_ft.shape = (batch_size, in_dim, grid_size , grid_size // 2 + 1, 2)
+        out_ft = tf.complex(out_ft[..., 0], out_ft[..., 1])
+
+        inputs = tf.signal.irfft2d(out_ft, fft_length=[N, M])
+        scale = tf.sqrt(tf.cast(tf.reduce_prod(tf.shape(out_ft)[-2:]), tf.float32))
+        inputs /= scale
+
+        inputs = tf.transpose(inputs, perm=[0, 2, 3, 1])
+
+        res = self.linear(inputs)
+        res = self.act(res + inputs)
+        return res
 
 
 # %%
@@ -92,18 +195,22 @@ class FourierLayer2d(tf.keras.layers.Layer):
             x_ft[:, :, : self.n_modes, : self.n_modes], self.fourier_weight[0]
         )
         # out_ft.shape=(batch_size, in_dim, n_modes, n_modes, 2)
-        out_ft_zero = tf.zeros([B, I, N - self.n_modes * 2, self.n_modes, 2], dtype=tf.float32)
+        out_ft_zero = tf.zeros(
+            [B, I, N - self.n_modes * 2, self.n_modes, 2], dtype=tf.float32
+        )
         out_ft = tf.concat([out_ft, out_ft_zero], axis=-3)
         out_ft = tf.concat(
             [
                 out_ft,
                 self.complex_matmul_2d(
-                    x_ft[:, :, :self.n_modes, :self.n_modes], self.fourier_weight[1]
+                    x_ft[:, :, : self.n_modes, : self.n_modes], self.fourier_weight[1]
                 ),
             ],
             axis=-3,
         )
-        out_ft = tf.concat([out_ft, tf.zeros([B, I, N, M // 2 + 1 - self.n_modes, 2])], axis=-2)
+        out_ft = tf.concat(
+            [out_ft, tf.zeros([B, I, N, M // 2 + 1 - self.n_modes, 2])], axis=-2
+        )
 
         out_ft = tf.complex(out_ft[..., 0], out_ft[..., 1])
 
@@ -187,9 +294,9 @@ class FNO2d(tf.keras.layers.Layer):
         x = self.last_layer(*predictors)
         x = self.out_2(x)
         if self.flat_mode == "batch":
-            x = rearrange(x, 'b x y c -> (b x y) c')
+            x = rearrange(x, "b x y c -> (b x y) c")
         elif self.flat_mode == "vector":
-            x = rearrange(x, 'b x y c -> b (x y) c')
+            x = rearrange(x, "b x y c -> b (x y) c")
         return x
 
     def last_layer(self, *predictors):
@@ -201,9 +308,7 @@ class FNO2d(tf.keras.layers.Layer):
         return self.out_act(x)
 
     def _encode_positions(self, dim_sizes):
-        return phase(dim_sizes=dim_sizes, 
-                     pos_low=self.pos_low, 
-                     pos_high=self.pos_high)
+        return phase(dim_sizes=dim_sizes, pos_low=self.pos_low, pos_high=self.pos_high)
 
     def _build_features(self, *predictors):
         # check what the predictors' type is
