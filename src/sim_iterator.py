@@ -41,35 +41,6 @@ def simple_sim_gen(
     )
 
 
-def tf_data_generator(*args, **kwargs):
-    for data in simple_sim_gen(*args, **kwargs):
-        yield data
-
-
-class SimIterator(tf.data.Dataset):
-    def __init__(self,
-                 *args,
-                 max_steps=1000,
-                 **kwargs):
-        super().__init__()
-        self.max_steps = max_steps
-        self._args = args
-        self._kwargs = kwargs
-        self._sim = None
-
-    def _generator(self):
-        for data in simple_sim_gen(
-                max_steps=self.max_steps,
-                *self._args, **self._kwargs):
-            yield data
-
-    def __iter__(self):
-        return self._generator()
-
-    def __len__(self):
-        return self.max_steps
-
-
 def batch_flat_y(data):
     X, y = data
     return X, rearrange(y, 'b x y c -> (b x y) c')

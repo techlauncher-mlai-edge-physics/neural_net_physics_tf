@@ -85,7 +85,7 @@ def ns_sim(
         force_extrapolation: str='ZERO',
         DT: float=0.01,
         incomp=True,
-        backend='torch',
+        backend='tensorflow',
         phi_device='GPU',
         taper_smooth=0.5,
         pos_init=False,   # positive p field, keeps incompressible sane
