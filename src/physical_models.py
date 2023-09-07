@@ -3,9 +3,6 @@ Author : John Kim, Ran Zhang, Dan MacKinlay
 PDE Simulation packages
 """
 
-import numpy as np
-import tensorflow as tf
-
 # def multinoise(field_cls, smoothness, smoothness_var, n_batch, **DOMAIN):
 #     """
 #     factory for functions which run the actual simulation
@@ -101,10 +98,9 @@ def ns_sim(
     """
     if backend == 'jax':
         from phi.jax.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch
-    elif backend == 'torch':
-        from phi.torch.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch
-        from phi.torch import TORCH
-        TORCH.set_default_device(phi_device)
+    elif backend == 'tensorflow':
+        from phi.tf.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch
+        from phi.tf import tf
     else:
         from phi.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch
 
