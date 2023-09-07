@@ -1,33 +1,23 @@
 # %%
-from src import fourier_basis
-from src import plots
-from src import physical_models
-from src import iterators
-from src import formatting
-from src.layers import fno_2d
-from src.formatting import pvf_pv_stacker
-from src.sim_iterator import simple_sim_gen
-import os
-
-import tensorflow as tf
-import dill
 import bz2
-
-import matplotlib.pyplot as plt
-
-from einops import rearrange
-
-from phi.tf.flow import *
-from phi import math
-from phi.tf import TENSORFLOW
-
-from tqdm import tqdm
 import datetime
 import gc  # garbage collector for training with constrained
+import os
 
-from phi import math, vis
-
+import dill
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from einops import rearrange
 from matplotlib_inline.backend_inline import set_matplotlib_formats
+from phi import math, vis
+from phi.tf import TENSORFLOW
+from phi.tf.flow import *
+from tqdm import tqdm
+
+from src import formatting, fourier_basis, iterators, physical_models, plots
+from src.formatting import pvf_pv_stacker
+from src.models import fno_2d
+from src.sim_iterator import simple_sim_gen
 
 set_matplotlib_formats(
     "jpeg",

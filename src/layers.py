@@ -1,6 +1,5 @@
 # %%
 from functools import partial
-from einops import rearrange
 import tensorflow as tf
 
 
@@ -35,7 +34,7 @@ def phase(
 # %%
 class FourierLayer2dLite(tf.keras.layers.Layer):
     def __init__(self, in_dim, out_dim, n_modes):
-        super(FourierLayer2d, self).__init__()
+        super(FourierLayer2dLite, self).__init__()
         self.in_dim = in_dim
         self.out_dim = out_dim
         self.n_modes = n_modes
@@ -58,7 +57,7 @@ class FourierLayer2dLite(tf.keras.layers.Layer):
             shape=(in_dim, out_dim, n_modes, n_modes, 2),
             initializer="glorot_uniform",
             trainable=True,
-            name="FourierLayer2d/fourier_weight_1",
+            name="FourierLayer2dLite/fourier_weight_1",
         )
 
         # Create the second variable using add_weight
@@ -66,8 +65,9 @@ class FourierLayer2dLite(tf.keras.layers.Layer):
             shape=(in_dim, out_dim, n_modes, n_modes, 2),
             initializer="glorot_uniform",
             trainable=True,
-            name="FourierLayer2d/fourier_weight_2",
+            name="FourierLayer2dLite/fourier_weight_2",
         )
+        
 
     @staticmethod
     def complex_matmul_2d(a, b):
@@ -227,100 +227,3 @@ class FourierLayer2d(tf.keras.layers.Layer):
         else:
             x = self.act(x)
         return x
-
-
-# %%
-class FNO2d(tf.keras.layers.Layer):
-    def __init__(
-        self,
-        in_channels=3,
-        out_channels=1,
-        modes=17,
-        width=20,
-        n_layers=4,
-        residual=False,
-        conv_residual=True,
-        nearly_last_width=128,
-        pos_low=-1.0,
-        pos_high=1.0,
-        flat_mode=False,
-        bias_1=True,
-        bias_2=True,
-    ):
-        super(FNO2d, self).__init__()
-        spatial_dim = 2
-
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        if isinstance(modes, int):
-            modes = [modes] * n_layers
-        self.modes = modes
-        assert len(self.modes) == n_layers
-        if isinstance(width, int):
-            width = [width] * (n_layers + 1)
-        self.width = width
-        assert len(self.width) == n_layers + 1
-
-        self.residual = residual
-        self.pos_low = pos_low
-        self.pos_high = pos_high
-
-        self.input_dim = in_channels + spatial_dim
-        w = self.width[0]
-        self.in_proj = tf.keras.layers.Dense(w)
-        self.spectral_layers = []
-        for next_w, m in zip(self.width[1:], modes):
-            self.spectral_layers.append(
-                FourierLayer2d(
-                    in_dim=w,
-                    out_dim=next_w,
-                    n_modes=m,
-                    residual=conv_residual,
-                )
-            )
-            w = next_w
-        if nearly_last_width > 0:
-            self.out_1 = tf.keras.layers.Dense(nearly_last_width, use_bias=bias_1)
-            w = nearly_last_width
-            self.out_act = tf.keras.layers.ReLU()
-        else:
-            self.out_1 = tf.keras.layers.Identity()
-            self.out_act = tf.keras.layers.Identity()
-
-        self.out_2 = tf.keras.layers.Dense(self.out_channels, use_bias=bias_2)
-        self.flat_mode = flat_mode
-
-    def call(self, *predictors):
-        x = self.last_layer(*predictors)
-        x = self.out_2(x)
-        if self.flat_mode == "batch":
-            x = rearrange(x, "b x y c -> (b x y) c")
-        elif self.flat_mode == "vector":
-            x = rearrange(x, "b x y c -> b (x y) c")
-        return x
-
-    def last_layer(self, *predictors):
-        x = self._build_features(*predictors)
-        x = self.in_proj(x)
-        for layer in self.spectral_layers:
-            x = layer(x) + x if self.residual else layer(x)
-        x = self.out_1(x)
-        return self.out_act(x)
-
-    def _encode_positions(self, dim_sizes):
-        return phase(dim_sizes=dim_sizes, pos_low=self.pos_low, pos_high=self.pos_high)
-
-    def _build_features(self, *predictors):
-        # check what the predictors' type is
-        B, *dim_sizes, T = predictors[0].shape
-        pos_feats = self._encode_positions(dim_sizes)
-        pos_feats = tf.repeat(pos_feats[tf.newaxis, ...], B, axis=0)
-        predictor_arr = tf.concat(predictors + (pos_feats,), axis=-1)
-        return predictor_arr
-
-
-# %%
-def fno_2d(*args, **kwargs):
-    net = FNO2d(*args, **kwargs)
-    # net.build(input_shape=(None, None, None, kwargs.get('in_channels', 3)))  # Adjust input shape
-    return net
