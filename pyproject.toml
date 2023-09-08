@@ -7,8 +7,6 @@ authors = [
 ]
 dependencies = [
     "phiflow>=2.4.0",
-    "tensorflow>=2.13.0",
-    "tensorflowjs",
     "tqdm>=4.65.0",
     "matplotlib>=3.7.2",
     "ipykernel>=6.25.0",
@@ -16,10 +14,15 @@ dependencies = [
     "jupyterlab>=4.0.4",
     "dill>=0.3.7",
     "tensorflow-io-gcs-filesystem==0.31.0",
-    "tf2onnx>=1.8.4",
-    "onnxruntime>=1.15.1",
-    "numpy>=1.24.3",
+    "einops>=0.6.1",
+    "tensorboard>=2.12.3",
+    "tensorflow>=2.13.0",
+    "pydot>=1.4.2",
+    "tensorflowjs>=4.10.0"
 ]
 requires-python = ">=3.9,<3.11"
 readme = "README.md"
 license = {text = "BSD-3-Clause"}
+
+[tool.pdm.resolution.overrides]
+packaging = ">=21.3"
