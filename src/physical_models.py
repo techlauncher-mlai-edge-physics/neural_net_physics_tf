@@ -68,7 +68,7 @@ def taper_like(prototype, smooth=1.0, *args, **kwargs):
 
 
 def ns_sim(
-        particle_extrapolation:str='BOUNDARY', 
+        particle_extrapolation:str='BOUNDARY',
         velocity_extrapolation:str='ZERO',
         NU: float=0.01,
         scale: float= 0.1,
@@ -118,11 +118,11 @@ def ns_sim(
         vec_grid_cls = StaggeredGrid
     else:
         vec_grid_cls = CenteredGrid
-    
+
     elem_vol = 1.0 / (grid_size[0] * grid_size[1])
     p_noise_scale = (p_noise_power * elem_vol) ** 0.5 * DT
     v_noise_scale = (v_noise_power * elem_vol) ** 0.5 * DT
-        
+
 
     def init_rand(n_batch: int=1):
         # Initialization of the particle (i.e. density of the flow) grid with a Phiflow Noise() method
@@ -153,7 +153,7 @@ def ns_sim(
             **DOMAIN
         )
 
-        # Initialization of the force grid. 
+        # Initialization of the force grid.
         force = vec_grid_cls(
             Noise(
                 *batch_chunk,
@@ -187,7 +187,7 @@ def ns_sim(
         if advect:
             velocity = advect.semi_lagrangian(velocity, velocity, dt=DT) # advection
         velocity = diffuse.explicit(velocity, NU, dt=DT) # diffusion
-        
+
         # Add external force, constraints
         velocity += DT * particle * force # external force
         # velocity = fluid.apply_boundary_conditions(velocity, obstacles) # obstacles
@@ -196,7 +196,7 @@ def ns_sim(
         if v_noise_scale>0.0:
             velocity += math.random_normal(
                 velocity.values.shape) * v_noise_scale
-        
+
         if incomp:
             # Make incompressible
             # pressure can be returned to accelerate future optimisations by providing a favourable startpoint
@@ -211,13 +211,13 @@ def ns_sim(
                     x0=pressure
                 ),
             )
-        
+
         # Computing particle term next
         if p_noise_scale>0.0:
             particle += math.random_normal(
                 particle.values.shape) * p_noise_scale
         particle = advect.semi_lagrangian(particle, velocity, dt=DT)
-        
+
         return particle, velocity, pressure
 
     if jit:
