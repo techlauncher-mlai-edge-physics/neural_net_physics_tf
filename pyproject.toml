@@ -18,7 +18,8 @@ dependencies = [
     "tensorboard>=2.12.3",
     "tensorflow>=2.13.0",
     "pydot>=1.4.2",
-    "tensorflowjs>=4.10.0"
+    "tensorflowjs>=4.10.0",
+    "tensorflow-addons>=0.21.0",
 ]
 requires-python = ">=3.9,<3.11"
 readme = "README.md"

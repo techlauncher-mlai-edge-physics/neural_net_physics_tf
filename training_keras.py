@@ -8,6 +8,11 @@ from einops import rearrange
 from matplotlib_inline.backend_inline import set_matplotlib_formats
 from phi import math
 
+# Workaround for Apple Silicon
+# TODO: replace with  from tensorflow.keras.optimizers import AdamW
+# see https://github.com/keras-team/keras/issues/18224
+from tensorflow_addons.optimizers import AdamW
+
 # import phi.tf.flow as phiflow
 
 from src import formatting, fourier_basis, physical_models
@@ -142,8 +147,8 @@ dataset = tf.data.Dataset.from_generator(
 )
 
 model.compile(
-    optimizer=tf.keras.optimizers.AdamW(
-        learning_rate=lr, weight_decay=weight_decay, epsilon=1e-7
+    optimizer=AdamW(
+        learning_rate=1e-3, weight_decay=6e-7, epsilon=1e-7
     ),
     loss=tf.keras.losses.MeanSquaredError(),
     metrics=["mean_squared_error"],
