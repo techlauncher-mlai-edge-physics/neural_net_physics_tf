@@ -3,7 +3,7 @@ import bz2
 import datetime
 import gc  # garbage collector for training with constrained
 import os
-
+import io
 import dill
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -25,7 +25,6 @@ from tensorflow.summary import create_file_writer
 log_dir = 'logs/'
 file_writer = create_file_writer(log_dir)
 
-'
 set_matplotlib_formats(
     "jpeg",
 )
@@ -48,7 +47,18 @@ init_rand, sim_step = physical_models.ns_sim(
     backend="tensorflow"
 )
 
-# %%
+
+def plot_to_tensor(figure):
+    # Save the plot to a PNG in memory.
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    plt.close(figure)
+    buf.seek(0)
+    # Convert PNG buffer to TF image
+    image = tf.image.decode_png(buf.getvalue(), channels=4)
+    # Add the batch dimension
+    image = tf.expand_dims(image, 0)
+    return image
 
 
 def simulate(particle, velocity, force, n_skip_steps=1):
@@ -183,12 +193,18 @@ try:
         with tf.GradientTape() as tape:
             pred = model(X, training=True)
             loss = loss_function(y, pred)
+        # where are we accumulating loss?
         gradients = tape.gradient(loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+        pred_particle = pred[:, :, :, :1]
+        pred_velocity = pred[:, :, :, 1:3]
+        loss_particle = loss_function(y_particle, pred_particle)
+        loss_velocity = loss_function(y_velocity, pred_velocity)
 
         losses.append(loss.numpy())
         with file_writer.as_default():
-            tf.summary.scalar("Training Loss", loss, step=step)
+            tf.summary.scalar("Training Loss (Particle)", loss_particle.numpy(), step=step)
+            tf.summary.scalar("Training Loss (Velocity)", loss_velocity.numpy(), step=step)
 
         if step % 13 == 0:
             print(f"iter={step}, MSE_for_this_iter={loss}")
@@ -198,7 +214,11 @@ try:
             )
             # plt.show()
             # # write an image of the output to tensorboard:
-            tf.summary.figure("pred_actual_plot", im, step=step)
+            image_tensor = plot_to_tensor(im)
+
+            # Write the image tensor to TensorBoard
+            with file_writer.as_default():
+                tf.summary.image("Prediction vs Actual", image_tensor, step=step)
 
 finally:
     pass
