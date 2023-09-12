@@ -1,7 +1,7 @@
 # %%
 import tensorflow as tf
 from einops import rearrange
-from src.layers import FourierLayer2d, FourierLayer2dLite
+from .layers import FourierLayer2d, FourierLayer2dLite
 
 
 # %%
