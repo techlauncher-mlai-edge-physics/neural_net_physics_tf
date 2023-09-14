@@ -16,13 +16,16 @@ from tqdm import tqdm
 
 from src import formatting, fourier_basis, iterators, physical_models, plots
 from src.formatting import pvf_pv_stacker
-from src.models import fno_2d
+from src.models import fno_2d, fno_2d_lite
 from src.sim_iterator import simple_sim_gen
 # 1. Import TensorBoard
 from tensorflow.summary import create_file_writer
 
 # 2. Create a file writer object. You can specify a log directory of your choice. For example, 'logs/'
-log_dir = 'logs/'
+
+run_name = "dan_exp_002"
+current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+log_dir = f'logs/{run_name}_{current_time}'
 file_writer = create_file_writer(log_dir)
 
 set_matplotlib_formats(
@@ -122,10 +125,11 @@ phases = fourier_basis.phase(grid_size)
 fs = fourier_basis.complete_fs((12, 12), dc=False)
 bases = fourier_basis.basis_flat(phases, *fs, norm=True)
 # %%
-model = fno_2d(
+model = fno_2d_lite(
     in_channels=5,
     out_channels=3,
     width=24,
+    modes=20,
     n_layers=5,
     nearly_last_width=64
 )
@@ -142,22 +146,16 @@ n_steps = 5
 max_steps = 1000
 n_batch = 32
 decay_rate = 1e-5
-initial_lr = 1e-3
+initial_lr = 1e-5
 lr_schedule = tensorflow.keras.optimizers.schedules.ExponentialDecay(
     initial_lr, decay_steps=10000, decay_rate=decay_rate)
 losses = []
-LOG_PATH = "debug"
-
-SUBLOG_PATH = os.path.join(
-    LOG_PATH, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-# writer = SummaryWriter(log_dir=SUBLOG_PATH)
 
 
 def num_params(model):
     return sum(param.numel() for param in model.parameters())
 
 
-#
 dl = simple_sim_gen(
     init_rand,
     sim_step,
@@ -203,6 +201,7 @@ try:
 
         losses.append(loss.numpy())
         with file_writer.as_default():
+            tf.summary.scalar("Training Loss (Total)", loss.numpy(), step=step)
             tf.summary.scalar("Training Loss (Particle)", loss_particle.numpy(), step=step)
             tf.summary.scalar("Training Loss (Velocity)", loss_velocity.numpy(), step=step)
 
