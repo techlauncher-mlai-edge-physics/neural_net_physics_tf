@@ -27,7 +27,6 @@ PHI_DEVICE = "CPU"
 set_matplotlib_formats(
     "jpeg",
 )  # <- reduce ipynb size
-PHI_DEVICE = "CPU"
 # %%
 grid_size = (64, 64)
 grid_size_x, grid_size_y = grid_size
@@ -123,11 +122,10 @@ model(
 v_noise_power = 1e6
 n_steps = 5
 max_steps = 1000
-n_batch = 32
-decay_rate = 1e-5
+n_batch = 64
+decay_rate = 6e-7
 initial_lr = 1e-3
-lr_schedule = tensorflow.keras.optimizers.schedules.ExponentialDecay(
-    initial_lr, decay_steps=10000, decay_rate=decay_rate)
+
 losses = []
 LOG_PATH = "debug"
 
@@ -156,7 +154,7 @@ dl = simple_sim_gen(
     stacker=pvf_pv_stacker
 )
 
-optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+optimizer = tf.keras.optimizers.Adam(learning_rate=initial_lr, weight_decay=decay_rate)
 loss_function = tf.keras.losses.MeanSquaredError()
 
 try:
@@ -166,11 +164,7 @@ try:
         X_force = X[:, :, :, 3:] / sd_force
         y_particle = y[:, :, :, :1] / sd_particle
         y_velocity = y[:, :, :, 1:3] / sd_velocity
-        # X[:, :, :, 0] /= sd_particle
-        # X[:, :, :, 1:3] /= sd_velocity
-        # X[:, :, :, 4:] /= sd_force
-        # y[:, :, :, 0] /= sd_particle
-        # y[:, :, :, 1:3] /= sd_velocity
+
         X = tf.concat([X_particle, X_velocity, X_force], axis=-1)
         y = tf.concat([y_particle, y_velocity], axis=-1)
         with tf.GradientTape() as tape:
