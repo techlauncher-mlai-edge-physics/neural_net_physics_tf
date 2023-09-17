@@ -93,8 +93,8 @@ phases = fourier_basis.phase(grid_size)
 fs = fourier_basis.complete_fs((12, 12), dc=False)
 bases = fourier_basis.basis_flat(phases, *fs, norm=True)
 # %%
-model = fno_2d(
-    in_channels=5, out_channels=3, width=13, modes=8, n_layers=3, nearly_last_width=64
+model = fno_2d_lite(
+    in_channels=5, out_channels=3, width=13, modes=8, n_layers=2, nearly_last_width=146
 )
 
 # %%
@@ -102,8 +102,11 @@ model(*formatting.to_native_chan_last(particle, velocity, force))
 # %%
 v_noise_power = 1e6
 n_steps = 5
-max_steps = 1000
+max_steps = 2000
 n_batch = 32
+lr = 1e-3
+weight_decay = 6e-7
+
 
 LOG_PATH = "debug"
 
@@ -140,7 +143,7 @@ dataset = tf.data.Dataset.from_generator(
 
 model.compile(
     optimizer=tf.keras.optimizers.AdamW(
-        learning_rate=1e-3, weight_decay=6e-7, epsilon=1e-7
+        learning_rate=lr, weight_decay=weight_decay, epsilon=1e-7
     ),
     loss=tf.keras.losses.MeanSquaredError(),
     metrics=["mean_squared_error"],
@@ -161,8 +164,8 @@ dataset = dataset.repeat()
 
 model.fit(
     dataset,
-    epochs=2,
-    steps_per_epoch=300,
+    epochs=5,
+    steps_per_epoch=400,
     callbacks=callbacks,
     verbose=1,
 )

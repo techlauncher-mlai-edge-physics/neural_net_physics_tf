@@ -100,7 +100,6 @@ def ns_sim(
         from phi.jax.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch
     elif backend == 'tensorflow':
         from phi.tf.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch
-        from phi.tf import tf
     else:
         from phi.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch
 

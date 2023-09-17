@@ -93,7 +93,7 @@ class FourierLayer2dLite(tf.keras.layers.Layer):
         scale = tf.sqrt(tf.cast(tf.reduce_prod(tf.shape(inputs)[-2:]), tf.complex64))
         x_ft /= scale
 
-        x_ft = tf.stack([tf.math.real(x_ft), tf.math.imag(x_ft)], axis=-1)
+        x_ft = tf.stack([tf.math.real(x_ft), tf.math.imag(x_ft)], axis=4)
         # x_ft.shape == [batch_size, in_dim, grid_size, grid_size // 2 + 1, 2]
 
         out_ft = self.complex_matmul_2d(
@@ -110,7 +110,7 @@ class FourierLayer2dLite(tf.keras.layers.Layer):
             [
                 out_ft,
                 self.complex_matmul_2d(
-                    x_ft[:, :, : self.n_modes, : self.n_modes], self.fourier_weight_2
+                    x_ft[:, :, -self.n_modes :, : self.n_modes], self.fourier_weight_2
                 ),
             ],
             axis=-3,
@@ -124,7 +124,7 @@ class FourierLayer2dLite(tf.keras.layers.Layer):
 
         inputs = tf.signal.irfft2d(out_ft, fft_length=[N, M])
         scale = tf.sqrt(tf.cast(tf.reduce_prod(tf.shape(out_ft)[-2:]), tf.float32))
-        inputs /= scale
+        inputs *= scale
 
         inputs = tf.transpose(inputs, perm=[0, 2, 3, 1])
 
@@ -203,7 +203,7 @@ class FourierLayer2d(tf.keras.layers.Layer):
             [
                 out_ft,
                 self.complex_matmul_2d(
-                    x_ft[:, :, : self.n_modes, : self.n_modes], self.fourier_weight[1]
+                    x_ft[:, :, -self.n_modes :, : self.n_modes], self.fourier_weight[1]
                 ),
             ],
             axis=-3,
