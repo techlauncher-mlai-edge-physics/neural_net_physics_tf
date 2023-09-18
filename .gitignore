@@ -167,3 +167,4 @@ debug
 
 ## Tensorboard
 logs
+.DS_Store
