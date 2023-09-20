@@ -42,7 +42,6 @@ init_rand, sim_step = physical_models.ns_sim(
 
 # %%
 
-
 def simulate(particle, velocity, force, n_skip_steps=1):
     pressure = None
     for _ in range(n_skip_steps):
