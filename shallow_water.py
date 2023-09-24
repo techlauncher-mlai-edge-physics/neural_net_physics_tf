@@ -1,4 +1,7 @@
 # %%
+%load_ext autoreload
+%autoreload 2
+# %%
 import datetime
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -34,24 +37,28 @@ grid_size = (64, 64)
 grid_size_x, grid_size_y = grid_size
 n_batch = 1
 
-init_rand, sim_step = physical_models.ns_sim(
+init_rand, sim_step = physical_models.shallow_water_sim(
     phi_device=PHI_DEVICE,
     grid_size=grid_size,
     jit=False,
-    incomp=False,
-    v_noise_power=1e6,
-    backend="tensorflow"
+    # v_noise_power=1e6,
+    backend="tensorflow",
+    scale=0.1,
+    force_scale=0.0,
+    velocity_scale=0.0,
+    n_blob=2,
 )
 
 math.seed(42)
-particle, velocity, force = init_rand(n_batch=1)
-vis.plot(particle.batch[0], show_color_bar=False)
-vis.plot(velocity.batch[0] * 0.01)
+height, velocity, force = init_rand(n_batch=n_batch)
+vis.plot(height.batch[0], show_color_bar=False)
+vis.plot(velocity.batch[0] * 0.05)
 pressure = None
 
 for _ in range(10):
-    particle, velocity, pressure = sim_step(
-        particle, velocity, force, pressure)
+    height, velocity, pressure = sim_step(
+        height, velocity, force, pressure)
     vis.plot(velocity * 0.05)
+    vis.plot(height, show_color_bar=False)
 
 # %%

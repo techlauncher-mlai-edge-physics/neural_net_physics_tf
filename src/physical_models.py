@@ -77,11 +77,11 @@ def ns_sim(
     factory for functions which run the actual simulation of a navier-stokes system.
     """
     if backend == 'jax':
-        from phi.jax.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch
+        from phi.jax.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch, instance
     elif backend == 'tensorflow':
-        from phi.tf.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch
+        from phi.tf.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch, instance
     else:
-        from phi.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch
+        from phi.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch, instance
 
     grid_size = list(grid_size)
     domain_size = list(domain_size)
@@ -219,10 +219,14 @@ def ns_sim(
 def shallow_water_sim(
         height_extrapolation:str='PERIODIC',
         velocity_extrapolation:str='PERIODIC',
-        NU: float=0.01,
+        gravity=1.0,
         scale: float= 0.1,
         smoothness: float=3.0,
-        # smoothness_var: float=0.0,
+        velocity_scale: float= 0.1,
+        velocity_smoothness: float=3.0,
+        n_blob: int=1,
+        blob_scale: float=0.1,
+        blob_size: float=0.1,
         force_scale: float=0.1,
         force_smoothness: float=5.0,
         # force_smoothness_var: float=0.0,
@@ -244,11 +248,11 @@ def shallow_water_sim(
     factory for functions which run the actual simulation of a shallow water system.
     """
     if backend == 'jax':
-        from phi.jax.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch
+        from phi.jax.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch, instance, channel, Sphere
     elif backend == 'tensorflow':
-        from phi.tf.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch
+        from phi.tf.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch, instance, channel, Sphere
     else:
-        from phi.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch
+        from phi.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch, instance, channel, Sphere
 
     grid_size = list(grid_size)
     domain_size = list(domain_size)
@@ -270,9 +274,7 @@ def shallow_water_sim(
     p_noise_scale = (p_noise_power * elem_vol) ** 0.5 * DT
     v_noise_scale = (v_noise_power * elem_vol) ** 0.5 * DT
 
-
     def init_rand(n_batch: int=1):
-        # Initialization of the height (i.e. density of the flow) grid with a Phiflow Noise() method
         batch_chunk = []
         if n_batch is not None and n_batch > 0:
             batch_chunk = [batch(batch=n_batch)]
@@ -287,13 +289,31 @@ def shallow_water_sim(
         )
         if pos_init:
             height -= math.min(height.values*1.01)
+        # Generate n_blob random numbers over the domain size
+        centres = math.random_uniform(
+            batch(batch=n_batch, blob=n_blob),
+            channel(vector='x,y'),)
+        centres = math.rename_dims(centres, 'blob', instance('blob'))
+        # Not used because random blob sizes are impossible in Phiflow
+        # sizes = math.random_uniform(
+        #     batch(batch=n_batch,blob=n_blob),
+        # ) * blob_scale
+        # sizes = math.rename_dims(centres, 'blob', instance('blob'))
+        print(centres)
+        print(Sphere(center=centres, radius=blob_size),)
+        height += CenteredGrid(
+            Sphere(center=centres, radius=blob_size),
+            extrapolation=getattr(extrapolation, height_extrapolation),
+            **DOMAIN
+        )
+        # vis.plot(start)
 
         # Initialization of the velocity grid with a Phiflow Noise() method
         velocity = vec_grid_cls(
             Noise(
                 *batch_chunk,
-                scale=scale,
-                smoothness=smoothness,
+                scale=velocity_scale,
+                smoothness=velocity_smoothness,
                 vector='x,y'
             ),
             extrapolation=getattr(extrapolation, velocity_extrapolation),
@@ -312,7 +332,7 @@ def shallow_water_sim(
             **DOMAIN
         )
 
-        if taper_smooth> 0.0:
+        if taper_smooth > 0.0:
             velocity *= taper_like(velocity, smooth=taper_smooth)
             force *= taper_like(force, smooth=taper_smooth)
 
@@ -328,34 +348,20 @@ def shallow_water_sim(
         force : External force terms
         **kwargs : Other simulation constraints etc
         """
-        # Computing velocity term first
-        # Cauchy-momentum equation
-        velocity = advect.semi_lagrangian(velocity, velocity, dt=DT) # advection
-        velocity = diffuse.explicit(velocity, NU, dt=DT) # diffusion
+        momentum = height * velocity
 
-        # Add external force, constraints
-        velocity += DT * height * force  # external force
-        # velocity = fluid.apply_boundary_conditions(velocity, obstacles) # obstacles
+        # advect mass
+        height = advect.semi_lagrangian(height, velocity, dt=DT)
+        pressure_grad = 0.5 * gravity * height**2
+        velocity = momentum / height - DT * pressure_grad
+
+        # Add external force
+        velocity += DT * force  # external force
 
         # process noise
         if v_noise_scale>0.0:
             velocity += math.random_normal(
                 velocity.values.shape) * v_noise_scale
-
-        if incomp:
-            # Make incompressible
-            # pressure can be returned to accelerate future optimisations by providing a favourable startpoint
-            velocity, pressure = fluid.make_incompressible(
-                velocity,
-                # obstacles,
-                solve=Solve(
-                    'CG-adaptive',
-                    1e-2,
-                    0,
-                    max_iterations=10000, # high val needed for small grid cells
-                    x0=pressure
-                ),
-            )
 
         # Computing height term next
         if p_noise_scale>0.0:
@@ -369,13 +375,17 @@ def shallow_water_sim(
         init_rand = math.jit_compile(init_rand)
         sim_step = math.jit_compile(sim_step)
 
-    def simulate(height, velocity, force, pressure=None,  n_skip_steps=n_skip_steps):
+    def simulate(
+            height, velocity, force, pressure=None, n_skip_steps=n_skip_steps):
         """
         Thin wrapper that runs the sim_step forward multiple steps at once;
-        This is faster for incompressible flows because it reycles a guess for the pressure variable, which otherwise must be recomputed for each step.
+        step.
+
+        We still accept a pressure var here so we keep sim API the same as the
+        NS-solve, but it is unused
         """
         for _ in range(n_skip_steps):
-            height, velocity, pressure = sim_step(height, velocity, force, pressure)
-        return height, velocity, pressure
+            height, velocity, pressure = sim_step(height, velocity, force, None)
+        return height, velocity, None
 
     return init_rand, simulate
