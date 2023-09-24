@@ -3,26 +3,6 @@ Author : John Kim, Ran Zhang, Dan MacKinlay
 PDE Simulation packages
 """
 
-# def multinoise(field_cls, smoothness, smoothness_var, n_batch, **DOMAIN):
-#     """
-#     factory for functions which run the actual simulation
-#     """
-#     def init_rand():
-#         # Initialization of the particle (i.e. density of the flow) grid with a Phiflow Noise() method
-#         field = field_cls(
-#             Noise(
-#                 batch(batch=n_batch),
-#                 scale=scale,
-#                 smoothness=smoothness,
-#                 vector='x,y'
-#             ),
-#             extrapolation=getattr(extrapolation, particle_extrapolation),
-#             **DOMAIN
-#         )
-#         return field
-#     return init_rand
-
-
 def taper_func(
         coord,  # <- what even is this? a channel name?
         smooth:float=1,
@@ -237,7 +217,7 @@ def ns_sim(
 
 
 def shallow_water_sim(
-        particle_extrapolation:str='BOUNDARY',
+        height_extrapolation:str='BOUNDARY',
         velocity_extrapolation:str='ZERO',
         NU: float=0.01,
         scale: float= 0.1,
@@ -292,21 +272,21 @@ def shallow_water_sim(
 
 
     def init_rand(n_batch: int=1):
-        # Initialization of the particle (i.e. density of the flow) grid with a Phiflow Noise() method
+        # Initialization of the height (i.e. density of the flow) grid with a Phiflow Noise() method
         batch_chunk = []
         if n_batch is not None and n_batch > 0:
             batch_chunk = [batch(batch=n_batch)]
-        particle = CenteredGrid(
+        height = CenteredGrid(
             Noise(
                 *batch_chunk,
                 scale=scale,
                 smoothness=smoothness
             ),
-            extrapolation=getattr(extrapolation, particle_extrapolation),
+            extrapolation=getattr(extrapolation, height_extrapolation),
             **DOMAIN
         )
         if pos_init:
-            particle -= math.min(particle.values*1.01)
+            height -= math.min(height.values*1.01)
 
         # Initialization of the velocity grid with a Phiflow Noise() method
         velocity = vec_grid_cls(
@@ -336,15 +316,15 @@ def shallow_water_sim(
             velocity *= taper_like(velocity, smooth=taper_smooth)
             force *= taper_like(force, smooth=taper_smooth)
 
-        return particle, velocity, force
+        return height, velocity, force
 
     def sim_step(
-            particle, velocity, force, pressure=None):
+            height, velocity, force, pressure=None):
         """
         Shallow-water equations.
 
         Input variables
-        velocity, particle : Observed variables (velocity & particle)
+        velocity, height : Observed variables (velocity & height)
         force : External force terms
         **kwargs : Other simulation constraints etc
         """
@@ -354,7 +334,7 @@ def shallow_water_sim(
         velocity = diffuse.explicit(velocity, NU, dt=DT) # diffusion
 
         # Add external force, constraints
-        velocity += DT * particle * force  # external force
+        velocity += DT * height * force  # external force
         # velocity = fluid.apply_boundary_conditions(velocity, obstacles) # obstacles
 
         # process noise
@@ -377,25 +357,25 @@ def shallow_water_sim(
                 ),
             )
 
-        # Computing particle term next
+        # Computing height term next
         if p_noise_scale>0.0:
-            particle += math.random_normal(
-                particle.values.shape) * p_noise_scale
-        particle = advect.semi_lagrangian(particle, velocity, dt=DT)
+            height += math.random_normal(
+                height.values.shape) * p_noise_scale
+        height = advect.semi_lagrangian(height, velocity, dt=DT)
 
-        return particle, velocity, pressure
+        return height, velocity, pressure
 
     if jit:
         init_rand = math.jit_compile(init_rand)
         sim_step = math.jit_compile(sim_step)
 
-    def simulate(particle, velocity, force, pressure=None,  n_skip_steps=n_skip_steps):
+    def simulate(height, velocity, force, pressure=None,  n_skip_steps=n_skip_steps):
         """
         Thin wrapper that runs the sim_step forward multiple steps at once;
         This is faster for incompressible flows because it reycles a guess for the pressure variable, which otherwise must be recomputed for each step.
         """
         for _ in range(n_skip_steps):
-            particle, velocity, pressure = sim_step(particle, velocity, force, pressure)
-        return particle, velocity, pressure
+            height, velocity, pressure = sim_step(height, velocity, force, pressure)
+        return height, velocity, pressure
 
     return init_rand, simulate
