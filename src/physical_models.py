@@ -48,8 +48,8 @@ def taper_like(prototype, smooth=1.0, *args, **kwargs):
 
 
 def ns_sim(
-        particle_extrapolation:str='BOUNDARY',
-        velocity_extrapolation:str='ZERO',
+        particle_extrapolation:str='PERIODIC',
+        velocity_extrapolation:str='PERIODIC',
         NU: float=0.01,
         scale: float= 0.1,
         smoothness: float=3.0,
@@ -59,12 +59,12 @@ def ns_sim(
         # force_smoothness_var: float=0.0,
         grid_size=(100,100),
         domain_size=(1.0,1.0),
-        force_extrapolation: str='ZERO',
+        force_extrapolation: str='PERIODIC',
         DT: float=0.01,
         incomp=True,
         backend='tensorflow',
         phi_device='GPU',
-        taper_smooth=0.5,
+        taper_smooth=0.0,
         pos_init=False,   # positive p field, keeps incompressible sane
         staggered=False, # stagger velocities
         jit=True,
@@ -217,8 +217,8 @@ def ns_sim(
 
 
 def shallow_water_sim(
-        height_extrapolation:str='BOUNDARY',
-        velocity_extrapolation:str='ZERO',
+        height_extrapolation:str='PERIODIC',
+        velocity_extrapolation:str='PERIODIC',
         NU: float=0.01,
         scale: float= 0.1,
         smoothness: float=3.0,
@@ -228,11 +228,11 @@ def shallow_water_sim(
         # force_smoothness_var: float=0.0,
         grid_size=(100,100),
         domain_size=(1.0,1.0),
-        force_extrapolation: str='ZERO',
+        force_extrapolation:str='PERIODIC',
         DT: float=0.01,
         backend='tensorflow',
         phi_device='GPU',
-        taper_smooth=0.5,
+        taper_smooth=0.0,
         pos_init=False,   # positive p field, keeps incompressible sane
         staggered=False,  # stagger velocities
         jit=True,
