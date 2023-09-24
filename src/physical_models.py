@@ -245,8 +245,67 @@ def shallow_water_sim(
         n_skip_steps=1,
     ):
     """
-    factory for functions which run the actual simulation of a shallow water system.
+    factory for functions which run the a simulation of a shallow water system.
+
+    The Shallow Water Equations are a set of hyperbolic partial differential
+    equations that describe fluid flow below a pressure surface in a fluid.
+    These equations simplify the Navier-Stokes equations by ignoring vertical
+    velocity components and assuming hydrostatic pressure. The equations can be
+    written in 2D as follows:
+
+    ### Continuity Equation (Mass Conservation):
+
+    \[
+    \frac{\partial h}{\partial t} + \nabla \cdot (h \mathbf{u}) = 0
+    \]
+
+    where \( h \) is the fluid height and \( \mathbf{u} = (u, v) \) is the velocity vector in the \(x\) and \(y\) directions.
+
+    - \(\frac{\partial h}{\partial t}\) is the rate of change of fluid height
+      with time.
+    - \(\nabla \cdot (h \mathbf{u})\) represents the divergence of the mass
+      flux \( h \mathbf{u} \).
+
+    This equation is all about advection, specifically the advection of mass \(h\).
+
+    ### Momentum Equations:
+
+    #### In the x-direction:
+    
+    \[
+    \frac{\partial (hu)}{\partial t} + \nabla \cdot (hu \mathbf{u}) = -gh \frac{\partial b}{\partial x} - g \frac{\partial h}{\partial x}
+    \]
+
+    #### In the y-direction:
+
+    \[
+    \frac{\partial (hv)}{\partial t} + \nabla \cdot (hv \mathbf{u}) = -gh \frac{\partial b}{\partial y} - g \frac{\partial h}{\partial y}
+    \]
+
+    where \( g \) is the gravitational constant and \( b(x,y) \) is the
+    bottom topography.
+
+    - \(\frac{\partial (hu)}{\partial t}\) and
+      \(\frac{\partial (hv)}{\partial t}\) are the time derivatives of the
+      momenta in the \( x \) and \( y \) directions, respectively.
+
+    - \(\nabla \cdot (hu \mathbf{u})\) and \(\nabla \cdot (hv \mathbf{u})\)
+      are the divergences of the momentum fluxes.
+
+    - \( -gh \frac{\partial b}{\partial x} \) and
+      \( -gh \frac{\partial b}{\partial y} \) are the pressure gradient forces
+      due to the varying bottom topography.
+
+    - \( -g \frac{\partial h}{\partial x} \) and
+      \( -g \frac{\partial h}{\partial y} \) are the pressure gradient forces
+      due to the fluid height.
+
+    These equations are primarily about advection but also include pressure
+    gradient terms that act like forcing terms. The equations do not inherently
+    contain diffusion terms, but diffusion can be artificially added for
+    numerical stability or to model subgrid-scale processes.
     """
+
     if backend == 'jax':
         from phi.jax.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch, instance, channel, Sphere
     elif backend == 'tensorflow':
