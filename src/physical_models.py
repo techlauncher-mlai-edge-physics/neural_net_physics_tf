@@ -308,11 +308,11 @@ def shallow_water_sim(
     """
 
     if backend == 'jax':
-        from phi.jax.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch, instance, channel, Sphere
+        from phi.jax.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch, instance, channel, Sphere, field
     elif backend == 'tensorflow':
-        from phi.tf.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch, instance, channel, Sphere
+        from phi.tf.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch, instance, channel, Sphere, field
     else:
-        from phi.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch, instance, channel, Sphere
+        from phi.flow import extrapolation, Box, wrap, advect, diffuse, fluid, math, Solve, CenteredGrid, StaggeredGrid, Noise, batch, instance, channel, Sphere, field
 
     grid_size = list(grid_size)
     domain_size = list(domain_size)
@@ -412,7 +412,7 @@ def shallow_water_sim(
 
         # advect mass
         height = advect.semi_lagrangian(height, velocity, dt=DT)
-        pressure_grad = 0.5 * gravity * height**2
+        pressure_grad = 0.5 * gravity * field.spatial_gradient(height**2)
         velocity = momentum / height - DT * pressure_grad
 
         # Add external force

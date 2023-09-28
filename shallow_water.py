@@ -47,7 +47,7 @@ init_rand, sim_step = physical_models.shallow_water_sim(
     force_scale=0.0,
     velocity_scale=0.0,
     n_blob=2,
-    gravity=10,
+    gravity=1,
     DT=0.01
 )
 
