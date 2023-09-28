@@ -47,18 +47,23 @@ init_rand, sim_step = physical_models.shallow_water_sim(
     force_scale=0.0,
     velocity_scale=0.0,
     n_blob=2,
+    gravity=10,
+    DT=0.01
 )
 
 math.seed(42)
 height, velocity, force = init_rand(n_batch=n_batch)
-vis.plot(height.batch[0], show_color_bar=False)
-vis.plot(velocity.batch[0] * 0.05)
+vis.plot(velocity * 0.05, title="velocity")
+plt.close()
+vis.plot(height, show_color_bar=False, title="height")
+plt.close()
+
 pressure = None
 
 for _ in range(10):
     height, velocity, pressure = sim_step(
         height, velocity, force, pressure)
-    vis.plot(velocity * 0.05)
-    vis.plot(height, show_color_bar=False)
+    vis.plot(velocity * 0.05, title="velocity")
+    vis.plot(height, show_color_bar=False, title="height")
 
 # %%

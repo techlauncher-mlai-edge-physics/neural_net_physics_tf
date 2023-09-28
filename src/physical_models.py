@@ -3,6 +3,7 @@ Author : John Kim, Ran Zhang, Dan MacKinlay
 PDE Simulation packages
 """
 
+
 def taper_func(
         coord,  # <- what even is this? a channel name?
         smooth:float=1,
@@ -340,12 +341,13 @@ def shallow_water_sim(
         height = CenteredGrid(
             Noise(
                 *batch_chunk,
-                scale=scale,
+                # scale=scale,
                 smoothness=smoothness
             ),
             extrapolation=getattr(extrapolation, height_extrapolation),
             **DOMAIN
         )
+        height *= scale
         if pos_init:
             height -= math.min(height.values*1.01)
         # Generate n_blob random numbers over the domain size
@@ -371,26 +373,25 @@ def shallow_water_sim(
         velocity = vec_grid_cls(
             Noise(
                 *batch_chunk,
-                scale=velocity_scale,
                 smoothness=velocity_smoothness,
                 vector='x,y'
             ),
             extrapolation=getattr(extrapolation, velocity_extrapolation),
             **DOMAIN
         )
-
+        velocity *= velocity_scale
         # Initialization of the force grid.
         force = vec_grid_cls(
             Noise(
                 *batch_chunk,
-                scale=force_scale,
+                # scale=force_scale,
                 smoothness=force_smoothness,
                 vector='x,y'
             ),
             extrapolation=getattr(extrapolation, force_extrapolation),
             **DOMAIN
         )
-
+        force *= force_scale
         if taper_smooth > 0.0:
             velocity *= taper_like(velocity, smooth=taper_smooth)
             force *= taper_like(force, smooth=taper_smooth)
