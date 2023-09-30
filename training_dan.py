@@ -40,6 +40,14 @@ PHI_DEVICE = "CPU"
 # %%
 grid_size = (64, 64)
 grid_size_x, grid_size_y = grid_size
+v_noise_power = 1e6
+n_steps = 5
+max_steps = 1000
+n_batch = 32
+decay_rate = 1e-5
+initial_lr = 1e-5
+n_skip_steps = 5
+DT = 0.01
 
 init_rand, sim_step = physical_models.ns_sim(
     phi_device=PHI_DEVICE,
@@ -47,9 +55,10 @@ init_rand, sim_step = physical_models.ns_sim(
     jit=False,
     incomp=False,
     v_noise_power=1e6,
-    backend="tensorflow"
+    backend="tensorflow",
+    DT=DT/n_skip_steps,
+    n_skip_steps=n_skip_steps,
 )
-
 
 def plot_to_tensor(figure):
     # Save the plot to a PNG in memory.
@@ -64,14 +73,6 @@ def plot_to_tensor(figure):
     return image
 
 
-def simulate(particle, velocity, force, n_skip_steps=1):
-    pressure = None
-    for _ in range(n_skip_steps):
-        particle, velocity, pressure = sim_step(
-            particle, velocity, force, pressure)
-    return particle, velocity, pressure
-
-
 # truth
 math.seed(42)
 particle, velocity, force = init_rand(n_batch=1)
@@ -83,7 +84,6 @@ math.seed(989)
 
 max_steps = 1000
 
-
 dl = simple_sim_gen(
     init_rand,
     sim_step,
@@ -91,11 +91,11 @@ dl = simple_sim_gen(
     n_context=2,
     max_steps=max_steps,
     n_batch=200,
-    in_p_var=0.01,
-    in_v_var=0.1,
-    out_p_var=0.01,
-    out_v_var=0.1,
-    f_var=0.01,
+    # in_p_var=0.01,
+    # in_v_var=0.1,
+    # out_p_var=0.01,
+    # out_v_var=0.1,
+    # f_var=0.01,
     stacker=pvf_pv_stacker
 )
 
@@ -141,12 +141,7 @@ model(
     )
 )
 # %%
-v_noise_power = 1e6
-n_steps = 5
-max_steps = 1000
-n_batch = 32
-decay_rate = 1e-5
-initial_lr = 1e-5
+
 lr_schedule = tensorflow.keras.optimizers.schedules.ExponentialDecay(
     initial_lr, decay_steps=10000, decay_rate=decay_rate)
 losses = []
