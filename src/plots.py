@@ -4,7 +4,8 @@ from math import sqrt, ceil, floor
 import numpy as np
 from matplotlib.colors import Normalize
 from einops import asnumpy
-
+import io
+import tempfile
 
 def multi_img_plot(x, interval=1, n_cols=None, fsize=6, interpolation=None, crange=None):
     """
@@ -104,3 +105,30 @@ def meshify(X,Z):
     mesh_Z = Z.reshape(n_x, n_y)
     return mesh_x, mesh_y, mesh_Z
 
+
+
+def plot_to_tensor(figure):
+    # Save the plot to a PNG in memory.
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    plt.close(figure)
+    buf.seek(0)
+    # Convert PNG buffer to TF image
+    image = tf.image.decode_png(buf.getvalue(), channels=4)
+    # Add the batch dimension
+    image = tf.expand_dims(image, 0)
+    return image
+
+def visplot_to_tensor(stupid_phi_plot_object):
+    # phiflow plots are annoying to save to disk, so we have to do this weird
+    # workaround to their "helpful" API
+    from phi import vis
+    with tempfile.NamedTemporaryFile(mode='w+', delete=True) as tmpfile:
+        # Call the write_file method on the object with tmpfile as an argument
+        vis.write_image(stupid_phi_plot_object, tmpfile.name)
+        vis.close(stupid_phi_plot_object)
+        tmpfile.seek(0)
+        image = tf.image.decode_png(buf.getvalue(), channels=4)
+        # Add the batch dimension
+        image = tf.expand_dims(image, 0)
+        return image

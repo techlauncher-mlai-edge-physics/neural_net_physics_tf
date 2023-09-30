@@ -12,13 +12,15 @@ from phi.tf.flow import *
 from tqdm import tqdm
 
 from src import formatting, fourier_basis, iterators, physical_models, plots
-from src.sim_iterator import simple_sim_gen
+from phi.vis._vis import get_plots_by_figure
+
+from src.plots import plot_to_tensor
 # 1. Import TensorBoard
 from tensorflow.summary import create_file_writer
 
 # 2. Create a file writer object. You can specify a log directory of your choice. For example, 'logs/'
 
-run_name = "dan_exp_002"
+run_name = "shallow_water"
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 log_dir = f'logs/{run_name}_{current_time}'
 file_writer = create_file_writer(log_dir)
@@ -28,14 +30,11 @@ set_matplotlib_formats(
 )
 PHI_DEVICE = "CPU"
 
-set_matplotlib_formats(
-    "jpeg",
-)  # <- reduce ipynb size
-PHI_DEVICE = "CPU"
 # %%
 grid_size = (64, 64)
 grid_size_x, grid_size_y = grid_size
 n_batch = 1
+n_skip_steps = 5
 
 init_rand, sim_step = physical_models.shallow_water_sim(
     phi_device=PHI_DEVICE,
@@ -48,7 +47,8 @@ init_rand, sim_step = physical_models.shallow_water_sim(
     velocity_scale=0.0,
     n_blob=2,
     gravity=1,
-    DT=0.01
+    DT=0.01/n_skip_steps,
+    n_skip_steps=n_skip_steps
 )
 
 math.seed(42)
@@ -60,10 +60,23 @@ plt.close()
 
 pressure = None
 
-for _ in range(10):
+for t in range(100):
+    print(t)
     height, velocity, pressure = sim_step(
         height, velocity, force, pressure)
     vis.plot(velocity * 0.05, title="velocity")
+    ## I don't know why I suddenly can't plot
+    # vis.show()
+    # vis.close()
+
+    # with file_writer.as_default():
+    #     tf.summary.image("V", plot_to_tensor(vplot), step=step)
     vis.plot(height, show_color_bar=False, title="height")
+    # vis.show()
+    # vis.close()
+
+    # with file_writer.as_default():
+    #     tf.summary.image("V", plot_to_tensor(hplot), step=step)
+
 
 # %%

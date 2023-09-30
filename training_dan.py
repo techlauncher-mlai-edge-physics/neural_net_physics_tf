@@ -15,6 +15,7 @@ from phi.tf.flow import *
 from tqdm import tqdm
 
 from src import formatting, fourier_basis, iterators, physical_models, plots
+from src.plots import plot_to_tensor
 from src.formatting import pvf_pv_stacker
 from src.models import fno_2d, fno_2d_lite
 from src.sim_iterator import simple_sim_gen
@@ -60,17 +61,8 @@ init_rand, sim_step = physical_models.ns_sim(
     n_skip_steps=n_skip_steps,
 )
 
-def plot_to_tensor(figure):
-    # Save the plot to a PNG in memory.
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png')
-    plt.close(figure)
-    buf.seek(0)
-    # Convert PNG buffer to TF image
-    image = tf.image.decode_png(buf.getvalue(), channels=4)
-    # Add the batch dimension
-    image = tf.expand_dims(image, 0)
-    return image
+
+
 
 
 # truth

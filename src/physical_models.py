@@ -67,7 +67,7 @@ def ns_sim(
         phi_device='GPU',
         taper_smooth=0.0,
         pos_init=False,   # positive p field, keeps incompressible sane
-        staggered=False, # stagger velocities
+        staggered=False,  # stagger velocities
         jit=True,
         p_noise_power=0.0,
         v_noise_power=0.0,
@@ -409,12 +409,10 @@ def shallow_water_sim(
         force : External force terms
         **kwargs : Other simulation constraints etc
         """
-        momentum = height * velocity
-
         # advect mass
         height = advect.semi_lagrangian(height, velocity, dt=DT)
         pressure_grad = 0.5 * gravity * field.spatial_gradient(height**2)
-        velocity = momentum / height - DT * pressure_grad
+        velocity = velocity - DT * pressure_grad
 
         # Add external force
         velocity += DT * force  # external force
@@ -423,12 +421,6 @@ def shallow_water_sim(
         if v_noise_scale>0.0:
             velocity += math.random_normal(
                 velocity.values.shape) * v_noise_scale
-
-        # Computing height term next
-        if p_noise_scale>0.0:
-            height += math.random_normal(
-                height.values.shape) * p_noise_scale
-        height = advect.semi_lagrangian(height, velocity, dt=DT)
 
         return height, velocity, pressure
 
@@ -443,7 +435,7 @@ def shallow_water_sim(
         step.
 
         We still accept a pressure var here so we keep sim API the same as the
-        NS-solve, but it is unused
+        NS-solve, but it is ignored
         """
         for _ in range(n_skip_steps):
             height, velocity, pressure = sim_step(height, velocity, force, None)
