@@ -224,7 +224,8 @@ def ns_sim(
         init_rand = math.jit_compile(init_rand)
         sim_step = math.jit_compile(sim_step)
 
-    def simulate(particle, velocity, force, pressure=None,  n_skip_steps=n_skip_steps):
+    def simulate(
+            particle, velocity, force, pressure=None, n_skip_steps=n_skip_steps):
         """
         Thin wrapper that runs the sim_step forward multiple steps at once;
         This is faster for incompressible flows because it reycles a guess for the pressure variable, which otherwise must be recomputed for each step.

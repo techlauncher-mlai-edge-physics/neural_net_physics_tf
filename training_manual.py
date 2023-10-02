@@ -30,6 +30,14 @@ set_matplotlib_formats(
 # %%
 grid_size = (64, 64)
 grid_size_x, grid_size_y = grid_size
+DT = 0.01
+v_noise_power = 0.0
+n_steps = 5
+max_steps = 1000
+n_batch = 64
+decay_rate = 6e-7
+initial_lr = 1e-3
+n_skip_steps = 5
 
 init_rand, sim_step = physical_models.ns_sim(
     phi_device=PHI_DEVICE,
@@ -37,19 +45,12 @@ init_rand, sim_step = physical_models.ns_sim(
     jit=False,
     incomp=False,
     v_noise_power=1e6,
-    backend="tensorflow"
+    backend="tensorflow",
+    DT=DT/n_skip_steps,
+    n_skip_steps=n_skip_steps,
 )
 
 # %%
-
-
-def simulate(particle, velocity, force, n_skip_steps=1):
-    pressure = None
-    for _ in range(n_skip_steps):
-        particle, velocity, pressure = sim_step(
-            particle, velocity, force, pressure)
-    return particle, velocity, pressure
-
 
 # truth
 math.seed(42)
@@ -59,8 +60,6 @@ vis.plot(velocity.batch[0] * 0.01)
 
 # %%
 math.seed(989)
-
-max_steps = 1000
 
 
 dl = simple_sim_gen(
@@ -75,7 +74,7 @@ dl = simple_sim_gen(
     out_p_var=0.01,
     out_v_var=0.1,
     f_var=0.01,
-    stacker=pvf_pv_stacker
+    stacker=pvf_pv_stacker,
 )
 
 # %%
@@ -119,13 +118,6 @@ model(
     )
 )
 # %%
-v_noise_power = 1e6
-n_steps = 5
-max_steps = 1000
-n_batch = 64
-decay_rate = 6e-7
-initial_lr = 1e-3
-
 losses = []
 LOG_PATH = "debug"
 
@@ -151,7 +143,7 @@ dl = simple_sim_gen(
     # out_p_var=0.01,
     # out_v_var=0.01,
     # f_var=0.01,
-    stacker=pvf_pv_stacker
+    stacker=pvf_pv_stacker,
 )
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=initial_lr, weight_decay=decay_rate)
