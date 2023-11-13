@@ -173,6 +173,6 @@ model.fit(
 # save the model
 model_name = model.__class__.__name__
 model.save(os.path.join("models", model_name + ".keras"))
-
+model.save(os.path.join("models", model_name), save_format="tf")
 
 # %%
