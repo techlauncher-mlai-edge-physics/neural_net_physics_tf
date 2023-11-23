@@ -67,7 +67,6 @@ class FourierLayer2dLite(tf.keras.layers.Layer):
             trainable=True,
             name="FourierLayer2dLite/fourier_weight_2",
         )
-        
 
     @staticmethod
     def complex_matmul_2d(a, b):
@@ -84,13 +83,14 @@ class FourierLayer2dLite(tf.keras.layers.Layer):
 
     def call(self, inputs):
         # x.shape == [batch_size, grid_size, grid_size, in_dim]
-        B, M, N, I = inputs.shape
+        _, M, N, I = inputs.shape
+        dynamic_shape = tf.shape(inputs)
 
         inputs = tf.transpose(inputs, perm=[0, 3, 1, 2])
         # x.shape == [batch_size, in_dim, grid_size, grid_size]
 
         x_ft = tf.signal.rfft2d(inputs, fft_length=[M, N])
-        scale = tf.sqrt(tf.cast(tf.reduce_prod(tf.shape(inputs)[-2:]), tf.complex64))
+        scale = tf.sqrt(tf.cast(tf.reduce_prod(dynamic_shape[-2:]), tf.complex64))
         x_ft /= scale
 
         x_ft = tf.stack([tf.math.real(x_ft), tf.math.imag(x_ft)], axis=4)
@@ -100,8 +100,10 @@ class FourierLayer2dLite(tf.keras.layers.Layer):
             x_ft[:, :, : self.n_modes, : self.n_modes], self.fourier_weight_1
         )
         # out_ft.shape = (batch_size, in_dim, n_modes, n_modes, 2)
+        # dynamic shape
         out_ft_zero = tf.zeros(
-            [B, I, N - self.n_modes * 2, self.n_modes, 2], dtype=tf.float32
+            [dynamic_shape[0], I, N - self.n_modes * 2, self.n_modes, 2],
+            dtype=tf.float32,
         )
         # out_ft_zero.shape = (batch_size, in_dim, grid_size - n_modes * 2, n_modes, 2)
         out_ft = tf.concat([out_ft, out_ft_zero], axis=-3)
@@ -117,7 +119,8 @@ class FourierLayer2dLite(tf.keras.layers.Layer):
         )
         # out_ft.shape = (batch_size, in_dim, grid_size , n_modes, 2)
         out_ft = tf.concat(
-            [out_ft, tf.zeros([B, I, N, M // 2 + 1 - self.n_modes, 2])], axis=-2
+            [out_ft, tf.zeros([dynamic_shape[0], I, N, M // 2 + 1 - self.n_modes, 2])],
+            axis=-2,
         )
         # out_ft.shape = (batch_size, in_dim, grid_size , grid_size // 2 + 1, 2)
         out_ft = tf.complex(out_ft[..., 0], out_ft[..., 1])
