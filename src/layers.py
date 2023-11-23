@@ -173,7 +173,8 @@ class FourierLayer2d(tf.keras.layers.Layer):
 
     def call(self, x):
         # x.shape == [batch_size, grid_size, grid_size, in_dim]
-        B, M, N, I = x.shape
+        _, M, N, I = x.shape
+        dynamic_shape = tf.shape(x)
 
         x = tf.transpose(x, perm=[0, 3, 1, 2])
         assert x.dtype == tf.float32
@@ -199,7 +200,8 @@ class FourierLayer2d(tf.keras.layers.Layer):
         )
         # out_ft.shape=(batch_size, in_dim, n_modes, n_modes, 2)
         out_ft_zero = tf.zeros(
-            [B, I, N - self.n_modes * 2, self.n_modes, 2], dtype=tf.float32
+            [dynamic_shape[0], I, N - self.n_modes * 2, self.n_modes, 2],
+            dtype=tf.float32,
         )
         out_ft = tf.concat([out_ft, out_ft_zero], axis=-3)
         out_ft = tf.concat(
@@ -212,7 +214,8 @@ class FourierLayer2d(tf.keras.layers.Layer):
             axis=-3,
         )
         out_ft = tf.concat(
-            [out_ft, tf.zeros([B, I, N, M // 2 + 1 - self.n_modes, 2])], axis=-2
+            [out_ft, tf.zeros([dynamic_shape[0], I, N, M // 2 + 1 - self.n_modes, 2])],
+            axis=-2,
         )
 
         out_ft = tf.complex(out_ft[..., 0], out_ft[..., 1])
