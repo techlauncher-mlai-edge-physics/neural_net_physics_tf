@@ -221,9 +221,10 @@ class FNO2d(tf.keras.Model):
 
     def _build_features(self, *predictors):
         # check what the predictors' type is
-        B, *dim_sizes, T = predictors[0].shape
+        _, *dim_sizes, T = predictors[0].shape
+        dyn_shape = tf.shape(predictors[0])
         pos_feats = self._encode_positions(dim_sizes)
-        pos_feats = tf.repeat(pos_feats[tf.newaxis, ...], B, axis=0)
+        pos_feats = tf.repeat(pos_feats[tf.newaxis, ...], dyn_shape[0], axis=0)
         predictor_arr = tf.concat(predictors + (pos_feats,), axis=-1)
         return predictor_arr
 
