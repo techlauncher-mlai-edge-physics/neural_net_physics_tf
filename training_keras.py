@@ -98,7 +98,7 @@ model = fno_2d_lite(
 )
 
 # %%
-model(*formatting.to_native_chan_last(particle, velocity, force))
+model(tf.zeros((1, 64, 64, 5)))
 # %%
 v_noise_power = 1e6
 n_steps = 5
@@ -151,7 +151,7 @@ model.compile(
 
 print(model.summary())
 
-tf.keras.utils.plot_model(model, to_file="model.png", show_shapes=True)
+# tf.keras.utils.plot_model(model, to_file="model.png", show_shapes=True)
 
 callbacks = [
     tf.keras.callbacks.TensorBoard(
@@ -164,8 +164,8 @@ dataset = dataset.repeat()
 
 model.fit(
     dataset,
-    epochs=5,
-    steps_per_epoch=400,
+    epochs=1,
+    steps_per_epoch=2,
     callbacks=callbacks,
     verbose=1,
 )
@@ -173,5 +173,6 @@ model.fit(
 # save the model
 model_name = model.__class__.__name__
 model.save(os.path.join("models", model_name + ".keras"))
+model.save(os.path.join("models", model_name), save_format="tf")
 
 # %%

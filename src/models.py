@@ -82,9 +82,9 @@ class FNO2dLiteModel(tf.keras.Model):
         self.out_act = tf.keras.layers.ReLU()
         self.out_2 = tf.keras.layers.Dense(self.out_channels, use_bias=bias_2)
 
-    def call(self, *inputs, training=False):
-        x = tf.concat(inputs, axis=-1)
+    def call(self, input, training=False):
         # run the model
+        x = input
         x = self.in_proj(x)
         # x = tf.expand_dims(x, axis=-1)
         for layer in self.spectral_layers:
