@@ -30,6 +30,21 @@ def phase(
     grid = tf.stack(tf.meshgrid(*grid_list, indexing="ij"), axis=-1)
     return grid
 
+@tf.function
+def manual_rfft2d(x):
+    x = tf.signal.rfft(x)
+    x = tf.cast(x, tf.complex64)
+    x = tf.signal.fft(tf.transpose(x, perm=[0, 1, 3, 2]))
+    x = tf.transpose(x, perm=[0, 1, 3, 2])
+    return x
+
+@tf.function
+def manual_irfft2d(x):
+    x = tf.signal.ifft(tf.transpose(x, perm=[0, 1, 3, 2]))
+    x = tf.transpose(x, perm=[0, 1, 3, 2])
+    x = tf.signal.irfft(x)
+    return x
+
 
 # %%
 class FourierLayer2dLite(tf.keras.layers.Layer):
@@ -89,7 +104,9 @@ class FourierLayer2dLite(tf.keras.layers.Layer):
         inputs = tf.transpose(inputs, perm=[0, 3, 1, 2])
         # x.shape == [batch_size, in_dim, grid_size, grid_size]
 
-        x_ft = tf.signal.rfft2d(inputs, fft_length=[M, N])
+        # x_ft = tf.signal.rfft2d(inputs, fft_length=[M, N])
+        x_ft = manual_rfft2d(inputs)
+
         scale = tf.sqrt(tf.cast(tf.reduce_prod(dynamic_shape[-2:]), tf.complex64))
         x_ft /= scale
 
@@ -125,7 +142,8 @@ class FourierLayer2dLite(tf.keras.layers.Layer):
         # out_ft.shape = (batch_size, in_dim, grid_size , grid_size // 2 + 1, 2)
         out_ft = tf.complex(out_ft[..., 0], out_ft[..., 1])
 
-        inputs = tf.signal.irfft2d(out_ft, fft_length=[N, M])
+        # inputs = tf.signal.irfft2d(out_ft, fft_length=[N, M])
+        inputs = manual_irfft2d(out_ft)
         scale = tf.sqrt(tf.cast(tf.reduce_prod(tf.shape(out_ft)[-2:]), tf.float32))
         inputs *= scale
 
@@ -180,11 +198,8 @@ class FourierLayer2d(tf.keras.layers.Layer):
         assert x.dtype == tf.float32
         # x.shape == [batch_size, in_dim, grid_size, grid_size]
 
-        # x_ft_real = tf.signal.rfft(x, fft_length=M, name="rfft_real")
-        # x_ft_imag = tf.signal.rfft(tf.reverse(x, axis=[-1]), fft_length=M, name="rfft_imag")
-        # x_ft_imag = tf.reverse(x_ft_imag, axis=[-1])
-
-        x_ft = tf.signal.rfft2d(x, fft_length=[M, N])
+        # x_ft = tf.signal.rfft2d(x, fft_length=[M, N])
+        x_ft = manual_rfft2d(x)
 
         x_ft = tf.stack([tf.math.real(x_ft), tf.math.imag(x_ft)], axis=-1)
 
@@ -220,7 +235,8 @@ class FourierLayer2d(tf.keras.layers.Layer):
 
         out_ft = tf.complex(out_ft[..., 0], out_ft[..., 1])
 
-        x = tf.signal.irfft2d(out_ft, fft_length=[N, M])
+        # x = tf.signal.irfft2d(out_ft, fft_length=[N, M])
+        x = manual_irfft2d(out_ft)
 
         # x_ift_real = tf.signal.irfft(out_ft, fft_length=M, name="irfft_real")
         # x_ift_real.shape == [batch_size, grid_size, grid_size, in_dim]
